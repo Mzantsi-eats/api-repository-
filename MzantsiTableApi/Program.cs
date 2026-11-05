@@ -99,15 +99,16 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+app.UseSwagger();
+app.UseSwaggerUI();
+
+app.UseHttpsRedirection();
+
+app.UseRouting();
 
 app.UseCors("AllowAndroidClient");
 
-// Order matters: the middleware verifies the Firebase ID token BEFORE authorization runs.
+app.UseAuthentication();
 app.UseMiddleware<FirebaseAuthenticationMiddleware>();
 app.UseAuthorization();
 
