@@ -1,64 +1,91 @@
-# The Mzantsi Table — Prototype
+# The Mzantsi Table - Backend API
 
-Two projects, matching the "Planning and design" section of the Open Source 6312
-POE (UI Design, API Design, UML):
+This repository contains the ASP.NET Core Web API backend for **The Mzantsi Table** - a digital living library dedicated to preserving and celebrating South African culinary heritage. 
 
-## 1. `MzantsiTable-Android/` — open in **Android Studio**
+The API is backed by **Firebase Authentication** and **Cloud Firestore**, serving as a secure, centralized data layer for the Android application and future web clients.
 
-Kotlin + Jetpack Compose app implementing the mocked-up screens as a working,
-navigable prototype:
+## Tech Stack
 
-- Launch screen with EN / ZU / ST language toggle
-- Register / Login (email or "Continue with Google" placeholder)
-- Home feed (search bar, Popular Right Now, By Culture)
-- Explore Cultures grid
-- Add Recipe form
-- Recipe detail (ingredients, method, save/heart, "Mark as Completed" celebration pop-up)
-- Saved recipes
-- Profile
+- **Framework:** ASP.NET Core Web API (.NET 8)
+- **Language:** C# 12
+- **Database:** Cloud Firestore (NoSQL)
+- **Authentication:** Firebase Admin SDK (ID token verification)
+- **Documentation:** Swagger / OpenAPI
+- **Architecture:** Controllers → Services → Repositories
 
-**Data:** runs entirely on in-memory mock data (`data/MockData.kt`) so it launches
-with no backend required. `data/api/MzantsiApiService.kt` is a Retrofit interface
-already shaped to match the C# API below — point its base URL at your deployed
-API and swap `MockData` calls for it when you're ready to connect the two.
+## Project Structure
 
-**To run:** open the folder in Android Studio (Koala+), let Gradle sync, run on
-an emulator or device (minSdk 26).
+```text
+MzantsiTableApi/
+├── Authentication/       # Firebase token verification middleware
+├── Controllers/          # API endpoints (Recipes, Users)
+├── Models/               # C# data models matching Firestore documents
+├── Repositories/         # Firestore data access layer
+├── Services/             # Business logic layer
+├── Program.cs            # Application entry point & dependency injection
+├── appsettings.json      # Configuration (ProjectId, credential paths)
+└── MzantsiTableApi.sln   # Visual Studio solution file
 
-## 2. `MzantsiTableApi/` — open in **Visual Studio**
+Getting Started
+Prerequisites
+.NET 8 SDK
 
-ASP.NET Core Web API (.NET 8) implementing the layered architecture described
-in the POE's API Design section: **Controllers → Services → Repositories**.
+Visual Studio 2022 (with the ASP.NET and web development workload)
 
-- `Controllers/RecipesController.cs` — `GET/POST /api/recipes`, `GET /api/recipes/{id}`,
-  `POST /api/recipes/{id}/reviews`, `GET /api/recipes/sync`
-- `Controllers/UsersController.cs` — register, login, profile, settings
-- `Services/` — business logic (mirrors the `RecipeHandler` controller class from
-  the POE's UML diagram)
-- `Repositories/` — currently **in-memory** (`InMemoryRecipeRepository`,
-  `InMemoryUserRepository`) seeded with the same recipes shown in the mockups, so
-  the API runs immediately with no cloud setup. Swap these for a Firestore-backed
-  implementation (per the POE's "Offline Mode with Sync" section) once you have a
-  Firebase service-account key — the interfaces (`IRecipeRepository`,
-  `IUserRepository`) are already there to implement against.
-- Swagger UI is enabled in development (`/swagger`) so you can try every endpoint
-  without the Android app.
+A Firebase project with Authentication and Firestore enabled
 
-**To run:** open `MzantsiTableApi.sln` in Visual Studio, hit Run (or
-`dotnet run` from the folder) — it starts on `http://localhost:5080` and opens
-Swagger automatically. Enable CORS is already configured so the Android emulator
-(`http://10.0.2.2:5080/`) can reach it.
+1. Clone the repository
+bash
+git clone https://github.com/Mzantsi-eats/api-repository-.git
+cd api-repository-
+2. Configure Firebase Credentials
+This API uses the Firebase Admin SDK, which requires a service account key.
 
-## What's intentionally left for the team to finish
+Go to the Firebase Console for your project.
 
-- Password hashing is a placeholder SHA-256 — real auth should go through
-  Firebase Authentication as the POE specifies, not this API.
-- Firestore, Firebase Storage, and push notifications aren't wired up — the
-  repository interfaces and service layer are shaped so those slot in without
-  changing the controllers.
-- The recipe-substitution engine, community hub, and multi-language UI beyond the
-  launch/home strings aren't built yet — everything else in "Additional features"
-  is still open.
-- Your document has two open review notes worth resolving before submission:
-  the "we need more weaknesses" note under Recipe Keeper, and "please include
-  milestones" on the Gantt chart.
+Navigate to Project settings (gear icon) → Service accounts.
+
+Click Generate new private key.
+
+Rename the downloaded .json file to exactly firebase-service-account.json.
+
+Place this file in the root of the MzantsiTableApi folder (next to Program.cs).
+
+⚠️ SECURITY WARNING: The firebase-service-account.json file contains admin credentials that can read, write, and delete your entire database. Never commit this file to GitHub. It is already added to .gitignore.
+
+3. Run the API
+Open MzantsiTableApi.sln in Visual Studio.
+
+Ensure appsettings.json contains the correct ProjectId for your Firebase project.
+
+Press F5 to build and run the API.
+
+Swagger UI will open automatically in your browser (e.g., at https://localhost:5081/swagger/index.html).
+
+API Endpoints
+The API is fully documented via Swagger. When running locally, you can test every endpoint directly from your browser. Protected endpoints require a valid Firebase ID token, which can be pasted into the Authorize dialog in Swagger.
+
+Recipes
+Method	Endpoint	Auth	Description
+GET	/api/Recipes	Public	List all recipes (optional ?cuisine= filter)
+GET	/api/Recipes/{id}	Public	Get a specific recipe
+POST	/api/Recipes	🔒	Create a new recipe
+POST	/api/Recipes/{id}/reviews	🔒	Submit a review for a recipe
+Users
+Method	Endpoint	Auth	Description
+GET	/api/Users/me	🔒	Get the current user's profile
+POST	/api/Users/me	🔒	Create a user profile on first login
+PUT	/api/Users/me/settings	🔒	Update user settings
+🔒 = Requires a valid Firebase ID token in the Authorization: Bearer <token> header.
+
+Security Model
+Authentication: All protected routes are guarded by a custom FirebaseAuthenticationMiddleware. It intercepts requests, verifies the Bearer token with the Firebase Admin SDK, and injects the user's UID into the request context.
+
+Identity Enforcement: The API never trusts a user ID sent in the request body. The POST /api/Recipes endpoint extracts the user's UID directly from the verified Firebase token, ensuring users cannot impersonate others.
+
+Database Access: The API writes to Firestore using the Admin SDK, bypassing client-side security rules. The Android app writes to Firestore directly using client-side rules. Both interact safely with the same database.
+
+Deployment
+This API is designed to be hosted on Microsoft Azure App Services (or any standard .NET hosting provider). Ensure the firebase-service-account.json is securely provided via environment variables or Azure Key Vault in production.
+
+**Developed as part of the Open Source 6312 Portfolio of Evidence at Rosebank International University College.**
